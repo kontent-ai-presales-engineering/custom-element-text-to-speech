@@ -38,7 +38,7 @@ export const promptToSelectAssets = (params: Readonly<{ allowMultiple: boolean; 
     .then(onNonNull(assets => CustomElement.getAssetDetails(assets.map(a => a.id))))
     .then(withFallback<ReadonlyArray<AssetDetail>>([]));
 
-type ElementValue = string | ReadonlyArray<MultiChoiceOption>;
+export type ElementValue = string | ReadonlyArray<MultiChoiceOption>;
 
 const zip = <V1, V2>(arr1: ReadonlyArray<V1>, arr2: ReadonlyArray<V2>): ReadonlyArray<[V1, V2]> =>
   arr1

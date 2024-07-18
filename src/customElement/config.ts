@@ -1,6 +1,11 @@
+import { z } from "zod";
+
 export type Config = Readonly<{
-  textElementCodename: string;
+  elementsToRead: readonly string[];
+  behaviour: "readAll" | "pickOne";
 }>;
 
-export const isConfig = (value: Readonly<Record<string, unknown>> | null) =>
-  value !== null; // use better check
+export const configSchema = z.object({
+  elementsToRead: z.array(z.string()),
+  behaviour: z.union([z.literal("readAll"), z.literal("pickOne")]),
+});

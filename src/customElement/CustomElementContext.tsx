@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useLayoutEffect, useMemo } from "react";
 import { ReactNode, useState } from "react";
-import { Config, isConfig } from "./config";
+import { Config, configSchema } from "./config";
 import { Value, parseValue } from "./value";
 
 // hooks are only ever used in the react tree so this is fine
@@ -70,7 +70,8 @@ export const CustomElementContext = (props: CustomElementContextProps) => {
 
   useEffect(() => {
     CustomElement.init((element, context) => {
-      if (!isConfig(element.config)) {
+      const config = configSchema.safeParse(element.config);
+      if (!config.success) {
         setError("The element's config is not valid!");
         return;
       }
@@ -80,7 +81,7 @@ export const CustomElementContext = (props: CustomElementContextProps) => {
       }
 
       setValue(parsedValue === "invalidValue" ? null : parsedValue);
-      setConfig(element.config as Config);
+      setConfig(config.data);
       setIsDisabled(element.disabled);
       setEnvironmentId(context.projectId);
       setItem(context.item);
@@ -129,7 +130,7 @@ const Context = React.createContext<CustomElementContext>({
     collection: { id: "" },
   },
   environmentId: "",
-  config: {} as Config,
+  config: { elementsToRead: [], behaviour: "readAll" },
   isDisabled: true,
   setValue: () => { },
 });

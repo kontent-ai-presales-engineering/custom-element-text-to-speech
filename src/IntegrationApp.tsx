@@ -1,60 +1,105 @@
 import { useState } from 'react';
-import { useConfig, useIsDisabled, useItemInfo, useEnvironmentId, useValue, useVariantInfo } from './customElement/CustomElementContext';
-import { promptToSelectAssets, promptToSelectItems, useElements } from './customElement/selectors';
+import { useConfig } from './customElement/CustomElementContext';
+import { ElementValue, useElements } from './customElement/selectors';
+import { Config } from './customElement/config';
+import { useVoices } from './useVoices';
+import { match } from 'ts-pattern';
 
 export const IntegrationApp = () => {
-  const [selectedAssetNames, setSelectedAssetNames] = useState<ReadonlyArray<string>>([]);
-  const [selectedItemNames, setSelectedItemNames] = useState<ReadonlyArray<string>>([]);
-
-  // use this to access/modify this element's value
-  const [elementValue, setElementValue] = useValue();
-  // get whether this element should be disabled
-  const isDisabled = useIsDisabled();
-  // this custom element's configuration (defined in the content type in the Kontent.ai app)
   const config = useConfig();
-  const projectId = useEnvironmentId();
-  const item = useItemInfo();
-  const variant = useVariantInfo();
+  const watchedElementsValues = useElements(config.elementsToRead);
+  const { availableVoices, setSelectedVoice, selectedVoice } = useVoices();
+  const [selectedElementCodename, setSelectedElementCodename] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [playerState, setPlayerState] = useState<PlayerState>(PlayerState.Stopped);
 
-  // use this to get (updated) value of other elements in this item, the elements must be allowed in the content type (see https://kontent.ai/learn/docs/custom-elements)
-  const watchedElementsValues = useElements([config.textElementCodename]);
+  const onRead = () => {
+    if (!selectedVoice || !watchedElementsValues) {
+      return;
+    }
+    const textToRead = getTextToRead(watchedElementsValues, config, selectedElementCodename);
+    const utterance = new SpeechSynthesisUtterance(textToRead);
+    utterance.voice = selectedVoice;
+    utterance.onstart = () => setPlayerState(PlayerState.Playing);
+    utterance.onend = () => setPlayerState(PlayerState.Stopped);
 
-  const selectAssets = () =>
-    // use this to prompt the user to select assets, the selected assets' details will be returned in the promise
-    promptToSelectAssets({ allowMultiple: true, fileType: "images" })
-      .then(assets => setSelectedAssetNames(assets?.map(asset => asset.name) ?? []));
+    utterance.onpause = () => setPlayerState(PlayerState.Paused);
+    utterance.onresume = () => setPlayerState(PlayerState.Playing);
 
-  const selectItems = () =>
-    // use this to prompt the user to select items, the selected items' details will be returned in the promise
-    promptToSelectItems({ allowMultiple: true })
-      .then(items => setSelectedItemNames(items?.map(item => item.name) ?? []));
+    utterance.onboundary = (event) => setProgress(event.charIndex / textToRead.length);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const onPause = () => window.speechSynthesis.pause();
+
+  const onResume = () => window.speechSynthesis.resume();
+
+  const onCancel = () => {
+    window.speechSynthesis.cancel();
+    setPlayerState(PlayerState.Stopped);
+    setProgress(0);
+  };
 
   return (
     <div>
-      <h2>Build your custom element here.</h2>
-      <button onClick={selectAssets}>Select an asset</button>
-      <h2>Selected assets</h2>
-      <section>{selectedAssetNames.join(", ")}</section>
-
-      <h2>Loaded data</h2>
-      <section>
-        {JSON.stringify({
-          selectedAssetNames,
-          selectedItemNames,
-          elementValue,
-          setElementValue,
-          isDisabled,
-          config,
-          projectId,
-          item,
-          variant,
-          watchedElementsValues,
-          selectAssets,
-          selectItems,
-        })}
-      </section>
+      <select
+        value={selectedVoice ? selectedVoice.name : ''}
+        onChange={setSelectedVoice}
+      >
+        {availableVoices.map((voice) => (
+          <option key={voice.name} value={voice.name}>
+            {voice.name}
+          </option>
+        ))}
+      </select>
+      {config.behaviour === "pickOne" && watchedElementsValues?.size && (
+        <select
+          value={selectedElementCodename || ''}
+          onChange={(e) => setSelectedElementCodename(e.target.value)}
+        >
+          {Array.from(watchedElementsValues.keys()).map((codename) => (
+            <option key={codename} value={codename}>
+              {codename}
+            </option>
+          ))}
+        </select>
+      )}
+      {selectedVoice && selectedVoice.name}
+      {match(playerState)
+        .with(PlayerState.Stopped, () => <button onClick={onRead}>Read</button>)
+        .with(PlayerState.Playing, () => <button onClick={onPause}>Pause</button>)
+        .with(PlayerState.Paused, () => <button onClick={onResume}>Resume</button>)
+        .exhaustive()
+      }
+      <button onClick={onCancel} disabled={playerState === PlayerState.Stopped}>Cancel</button>
+      {(progress * 100).toFixed(0)}%
     </div>
   );
 };
 
 IntegrationApp.displayName = 'IntegrationApp';
+
+const getTextToRead = (elements: ReadonlyMap<string, ElementValue>, config: Config, selectedElementCodename: string | null) => {
+  switch (config.behaviour) {
+    case "readAll":
+      return Array.from(elements.values())
+        .map(getElementText)
+        .join(" ");
+    case "pickOne":
+      return selectedElementCodename
+        ? getElementText(elements.get(selectedElementCodename) ?? "")
+        : [...elements.values()].map(getElementText).join(" ");
+  }
+};
+
+const getElementText = (element: ElementValue) =>
+  typeof element === "string"
+    ? element
+    : element.map(o => o.name).join(", ");
+
+enum PlayerState {
+  Stopped = "Stopped",
+  Playing = "Playing",
+  Paused = "Paused",
+}
