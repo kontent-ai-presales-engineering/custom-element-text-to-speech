@@ -17,8 +17,8 @@ export const useVoices = () => {
     return () => window.speechSynthesis.removeEventListener('voiceschanged', onVoicesChanged);
   }, []);
 
-  const onSelectedVoiceChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    const voice = availableVoices.find(v => v.name === e.target.value);
+  const onSelectedVoiceChange = useCallback((newVoiceName: string) => {
+    const voice = availableVoices.find(v => v.name === newVoiceName);
     if (voice) {
       setSelectedVoice(voice);
     }

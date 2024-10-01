@@ -110,7 +110,7 @@ export const CustomElementContext = (props: CustomElementContextProps) => {
   }
 
   if (!context) {
-    return <h1>Loading...</h1>;
+    return <main style={{ display: "flex", justifyContent: "center" }}><div className="loader" /></main>;
   }
 
   return (

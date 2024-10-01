@@ -4,6 +4,9 @@ import { ElementValue, useElements } from './customElement/selectors';
 import { Config } from './customElement/config';
 import { useVoices } from './useVoices';
 import { match } from 'ts-pattern';
+import { Dropdown } from './components/Dropdown';
+import { Button } from './components/Button';
+import { app, appRow } from "./integrationApp.module.css";
 
 export const IntegrationApp = () => {
   const config = useConfig();
@@ -42,38 +45,34 @@ export const IntegrationApp = () => {
   };
 
   return (
-    <div>
-      <select
-        value={selectedVoice ? selectedVoice.name : ''}
-        onChange={setSelectedVoice}
-      >
-        {availableVoices.map((voice) => (
-          <option key={voice.name} value={voice.name}>
-            {voice.name}
-          </option>
-        ))}
-      </select>
-      {config.behaviour === "pickOne" && watchedElementsValues?.size && (
-        <select
-          value={selectedElementCodename || ''}
-          onChange={(e) => setSelectedElementCodename(e.target.value)}
-        >
-          {Array.from(watchedElementsValues.keys()).map((codename) => (
-            <option key={codename} value={codename}>
-              {codename}
-            </option>
-          ))}
-        </select>
-      )}
-      {selectedVoice && selectedVoice.name}
-      {match(playerState)
-        .with(PlayerState.Stopped, () => <button onClick={onRead}>Read</button>)
-        .with(PlayerState.Playing, () => <button onClick={onPause}>Pause</button>)
-        .with(PlayerState.Paused, () => <button onClick={onResume}>Resume</button>)
-        .exhaustive()
-      }
-      <button onClick={onCancel} disabled={playerState === PlayerState.Stopped}>Cancel</button>
-      {(progress * 100).toFixed(0)}%
+    <div className={app}>
+      <div className={appRow}>
+        <Dropdown
+          emptyText="Choose a voice"
+          options={availableVoices.map(v => v.name)}
+          selectedOption={selectedVoice?.name ?? null}
+          onSelect={setSelectedVoice}
+        />
+        {config.behaviour === "pickOne" && watchedElementsValues?.size && (
+          <Dropdown
+            emptyText="Choose an element to read"
+            options={Array.from(watchedElementsValues.keys())}
+            selectedOption={selectedElementCodename ?? null}
+            onSelect={setSelectedElementCodename}
+          />
+        )}
+        <div>progress: {(progress * 100).toFixed(0)}%</div>
+      </div>
+
+      <div className={appRow}>
+        {match(playerState)
+          .with(PlayerState.Stopped, () => <Button type="primary" onClick={onRead}>Read</Button>)
+          .with(PlayerState.Playing, () => <Button type="primary" onClick={onPause}>Pause</Button>)
+          .with(PlayerState.Paused, () => <Button type="primary" onClick={onResume}>Resume</Button>)
+          .exhaustive()
+        }
+        <Button type="secondary" onClick={onCancel} isDisabled={playerState === PlayerState.Stopped}>Cancel</Button>
+      </div>
     </div>
   );
 };
