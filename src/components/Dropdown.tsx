@@ -20,7 +20,6 @@ export const Dropdown = (props: Props) => {
           {props.options.map((option) => (
             <li
               key={option}
-              style={{ display: "block" }}
               className={`option ${props.selectedOption === option ? "selected" : ""}`}
               onClick={() => {
                 setIsOpen(false);
